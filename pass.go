@@ -652,7 +652,7 @@ func loadConfig(configFileName string) (cfg passConfiguration, err error) {
 	}
 
 	if len(cfg.Secret) < 64 {
-		return cfg, fmt.Errorf("Site secret shorter than 64 characters, please make it at least 64 characters")
+		return cfg, fmt.Errorf("%s 'Secret' shorter than 64 characters, please make it at least 64 characters", configFileName)
 	}
 
 	return cfg, nil
