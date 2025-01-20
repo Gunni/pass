@@ -1,9 +1,11 @@
-#!/bin/bash
+#!/bin/bash -x
 
+# Create database and roles before running this script, see README for how.
+#
 # Before Use: Set the neccessary database credentials in ~/.pgpass on your
 # management user, not on the user running this application.
 #
-#   database.example.com:5432:*:username:password
+#   database.example.com:5432:pass:password_owner_role:password
 #
 # Export the following environment variables (e.g. in ~/.bash_profile):
 #
