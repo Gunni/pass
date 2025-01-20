@@ -84,7 +84,7 @@ var contentSecurityPolicyHTML = strings.Join([]string{
 	"form-action 'self';",
 	"frame-ancestors 'none';",
 	"block-all-mixed-content;",
-	"sandbox allow-scripts allow-forms allow-same-origin;",
+	"sandbox allow-scripts allow-forms allow-popups allow-same-origin;",
 	"require-sri-for script style;",
 	"base-uri 'none';",
 }, " ")
