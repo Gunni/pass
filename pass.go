@@ -98,27 +98,6 @@ var contentSecurityPolicyJSON = strings.Join([]string{
 	"base-uri 'none';",
 }, " ")
 
-var featurePolicy = strings.Join([]string{
-	"accelerometer 'none';",
-	"ambient-light-sensor 'none';",
-	"autoplay 'none';",
-	"camera 'none';",
-	"encrypted-media 'none';",
-	"fullscreen 'none';",
-	"geolocation 'none';",
-	"gyroscope 'none';",
-	"magnetometer 'none';",
-	"microphone 'none';",
-	"midi 'none';",
-	"payment 'none';",
-	"picture-in-picture 'none';",
-	"speaker 'none';",
-	"sync-xhr 'none';",
-	"sync-script 'none';",
-	"usb 'none';",
-	"vr 'none';",
-}, " ")
-
 // generateSecurityHeaders generates the http securityHeaders to be outputted
 // as http headers before every request
 func (p *Pass) generateSecurityHeaders() {
@@ -133,7 +112,6 @@ func (p *Pass) generateSecurityHeaders() {
 	}
 
 	p.sv.securityHeaders["Access-Control-Allow-Origin"] = p.GetURL()
-	p.sv.securityHeaders["Feature-Policy"] = featurePolicy
 	p.sv.securityHeaders["Referrer-Policy"] = "no-referrer"
 	p.sv.securityHeaders["X-Content-Type-Options"] = "nosniff"
 	p.sv.securityHeaders["X-Frame-Options"] = "deny"
