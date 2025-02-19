@@ -30,6 +30,7 @@ type passConfiguration struct {
 		File string
 		Key  string
 	}
+	ContentSecurityPolicyOverride string
 	HSTS struct {
 		MaxAge            int
 		IncludeSubDomains bool
@@ -351,11 +352,16 @@ func (p *Pass) OutputHeaders(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set(key, value)
 	}
 
-	// More restrictive CSP for json requests
-	if helpers.HTTPAcceptCheck("application/json", r.Header) {
-		rw.Header().Set("Content-Security-Policy", contentSecurityPolicyJSON)
+	if p.sv.cfg.ContentSecurityPolicyOverride == "" {
+		// More restrictive CSP for json requests
+		if helpers.HTTPAcceptCheck("application/json", r.Header) {
+			rw.Header().Set("Content-Security-Policy", contentSecurityPolicyJSON)
+		} else {
+			rw.Header().Set("Content-Security-Policy", contentSecurityPolicyHTML)
+		}
 	} else {
-		rw.Header().Set("Content-Security-Policy", contentSecurityPolicyHTML)
+		// Allow config to override the CSP
+		rw.Header().Set("Content-Security-Policy", p.sv.cfg.ContentSecurityPolicyOverride)
 	}
 }
 
@@ -761,6 +767,10 @@ func Main(pass *Pass) {
 	fmt.Printf("%s: Startup!\n", sv.cfg.Title)
 	fmt.Printf("Main program: %s\n", mainApp)
 	fmt.Printf("Wrapped by:   %s\n", wrapper)
+
+	if sv.cfg.ContentSecurityPolicyOverride != "" {
+		fmt.Printf("NOTE: Content-Security-Policy override applied for all requests: %s\n", sv.cfg.ContentSecurityPolicyOverride)
+	}
 
 	// goroutine that runs forever checking the state of the database connection
 	// This can not run in the normal process flow because of a bug in the pq
