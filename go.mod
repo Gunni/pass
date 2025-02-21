@@ -1,4 +1,4 @@
-module github.com/advania/pass
+module github.com/Gunni/pass
 
 go 1.22
 

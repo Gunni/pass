@@ -5,8 +5,8 @@ import (
 	"net/http"
 	textTemplate "text/template"
 
-	"github.com/advania/pass"
-	"github.com/advania/pass/senders"
+	"github.com/Gunni/pass"
+	"github.com/Gunni/pass/senders"
 )
 
 func main() {
