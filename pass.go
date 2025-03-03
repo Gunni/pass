@@ -508,34 +508,37 @@ func onBeforeRequest(rv *requestVariables) {
 
 func handler(p *Pass, rv *requestVariables) {
 	if rv.r.Method == http.MethodGet {
-		switch rv.path[0] {
-		case "favicon.ico":
-			p.serveStatic(rv, "static/favicon.ico", "image/x-icon")
-			return
-		case "css":
-			p.serveStatic(rv, "static/css.css", "text/css")
-			return
-		case "js":
-			p.serveStatic(rv, "static/js.js", "application/javascript")
-			return
-		case "logo":
-			p.serveStatic(rv, "static/logo_header.png", "image/png")
-			return
-		case "robots.txt":
-			rv.w.Header().Set("Content-Type", "text/plain")
-			rv.w.Header().Set("Cache-Control", "max-age=2592000") // 30 days
-			rv.w.Write([]byte("User-agent: *\nDisallow: /"))
-			return
-		case "ping":
-			rv.w.Header().Set("Cache-Control", "max-age=0")
-			// Takes ~42 seconds if db is unresponsive, use it to check for it using client side js
-			// https://github.com/lib/pq/issues/620
-			// returns HTTP 500 if server can be instantly detected as being down
-			if err := rv.sv.db.ping(); err != nil {
-				log.Printf("db.Ping() returned %v\n", err)
-				rv.w.WriteHeader(http.StatusInternalServerError)
+		if len(rv.path) == 1 {
+			// All the below paths are length 1, prevent handling /logo/asdf as if /logo was used
+			switch rv.path[0] {
+			case "favicon.ico":
+				p.serveStatic(rv, "static/favicon.ico", "image/x-icon")
+				return
+			case "css":
+				p.serveStatic(rv, "static/css.css", "text/css")
+				return
+			case "js":
+				p.serveStatic(rv, "static/js.js", "application/javascript")
+				return
+			case "logo":
+				p.serveStatic(rv, "static/logo_header.png", "image/png")
+				return
+			case "robots.txt":
+				rv.w.Header().Set("Content-Type", "text/plain")
+				rv.w.Header().Set("Cache-Control", "max-age=2592000") // 30 days
+				rv.w.Write([]byte("User-agent: *\nDisallow: /"))
+				return
+			case "ping":
+				rv.w.Header().Set("Cache-Control", "max-age=0")
+				// Takes ~42 seconds if db is unresponsive, use it to check for it using client side js
+				// https://github.com/lib/pq/issues/620
+				// returns HTTP 500 if server can be instantly detected as being down
+				if err := rv.sv.db.ping(); err != nil {
+					log.Printf("db.Ping() returned %v\n", err)
+					rv.w.WriteHeader(http.StatusInternalServerError)
+				}
+				return
 			}
-			return
 		}
 	}
 
