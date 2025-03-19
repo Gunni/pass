@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/advania/pass/helpers"
+	"github.com/Gunni/pass/helpers"
 
 	"github.com/lib/pq"
 )
@@ -30,6 +30,7 @@ type passConfiguration struct {
 		File string
 		Key  string
 	}
+	ContentSecurityPolicyOverride string
 	HSTS struct {
 		MaxAge            int
 		IncludeSubDomains bool
@@ -84,7 +85,7 @@ var contentSecurityPolicyHTML = strings.Join([]string{
 	"form-action 'self';",
 	"frame-ancestors 'none';",
 	"block-all-mixed-content;",
-	"sandbox allow-scripts allow-forms allow-same-origin;",
+	"sandbox allow-scripts allow-forms allow-popups allow-same-origin;",
 	"require-sri-for script style;",
 	"base-uri 'none';",
 }, " ")
@@ -96,27 +97,6 @@ var contentSecurityPolicyJSON = strings.Join([]string{
 	"sandbox",
 	"require-sri-for script style;",
 	"base-uri 'none';",
-}, " ")
-
-var featurePolicy = strings.Join([]string{
-	"accelerometer 'none';",
-	"ambient-light-sensor 'none';",
-	"autoplay 'none';",
-	"camera 'none';",
-	"encrypted-media 'none';",
-	"fullscreen 'none';",
-	"geolocation 'none';",
-	"gyroscope 'none';",
-	"magnetometer 'none';",
-	"microphone 'none';",
-	"midi 'none';",
-	"payment 'none';",
-	"picture-in-picture 'none';",
-	"speaker 'none';",
-	"sync-xhr 'none';",
-	"sync-script 'none';",
-	"usb 'none';",
-	"vr 'none';",
 }, " ")
 
 // generateSecurityHeaders generates the http securityHeaders to be outputted
@@ -133,7 +113,6 @@ func (p *Pass) generateSecurityHeaders() {
 	}
 
 	p.sv.securityHeaders["Access-Control-Allow-Origin"] = p.GetURL()
-	p.sv.securityHeaders["Feature-Policy"] = featurePolicy
 	p.sv.securityHeaders["Referrer-Policy"] = "no-referrer"
 	p.sv.securityHeaders["X-Content-Type-Options"] = "nosniff"
 	p.sv.securityHeaders["X-Frame-Options"] = "deny"
@@ -373,11 +352,16 @@ func (p *Pass) OutputHeaders(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set(key, value)
 	}
 
-	// More restrictive CSP for json requests
-	if helpers.HTTPAcceptCheck("application/json", r.Header) {
-		rw.Header().Set("Content-Security-Policy", contentSecurityPolicyJSON)
+	if p.sv.cfg.ContentSecurityPolicyOverride == "" {
+		// More restrictive CSP for json requests
+		if helpers.HTTPAcceptCheck("application/json", r.Header) {
+			rw.Header().Set("Content-Security-Policy", contentSecurityPolicyJSON)
+		} else {
+			rw.Header().Set("Content-Security-Policy", contentSecurityPolicyHTML)
+		}
 	} else {
-		rw.Header().Set("Content-Security-Policy", contentSecurityPolicyHTML)
+		// Allow config to override the CSP
+		rw.Header().Set("Content-Security-Policy", p.sv.cfg.ContentSecurityPolicyOverride)
 	}
 }
 
@@ -524,34 +508,37 @@ func onBeforeRequest(rv *requestVariables) {
 
 func handler(p *Pass, rv *requestVariables) {
 	if rv.r.Method == http.MethodGet {
-		switch rv.path[0] {
-		case "favicon.ico":
-			p.serveStatic(rv, "static/favicon.ico", "image/x-icon")
-			return
-		case "css":
-			p.serveStatic(rv, "static/css.css", "text/css")
-			return
-		case "js":
-			p.serveStatic(rv, "static/js.js", "application/javascript")
-			return
-		case "logo":
-			p.serveStatic(rv, "static/logo_header.png", "image/png")
-			return
-		case "robots.txt":
-			rv.w.Header().Set("Content-Type", "text/plain")
-			rv.w.Header().Set("Cache-Control", "max-age=2592000") // 30 days
-			rv.w.Write([]byte("User-agent: *\nDisallow: /"))
-			return
-		case "ping":
-			rv.w.Header().Set("Cache-Control", "max-age=0")
-			// Takes ~42 seconds if db is unresponsive, use it to check for it using client side js
-			// https://github.com/lib/pq/issues/620
-			// returns HTTP 500 if server can be instantly detected as being down
-			if err := rv.sv.db.ping(); err != nil {
-				log.Printf("db.Ping() returned %v\n", err)
-				rv.w.WriteHeader(http.StatusInternalServerError)
+		if len(rv.path) == 1 {
+			// All the below paths are length 1, prevent handling /logo/asdf as if /logo was used
+			switch rv.path[0] {
+			case "favicon.ico":
+				p.serveStatic(rv, "static/favicon.ico", "image/x-icon")
+				return
+			case "css":
+				p.serveStatic(rv, "static/css.css", "text/css")
+				return
+			case "js":
+				p.serveStatic(rv, "static/js.js", "application/javascript")
+				return
+			case "logo":
+				p.serveStatic(rv, "static/logo_header.png", "image/png")
+				return
+			case "robots.txt":
+				rv.w.Header().Set("Content-Type", "text/plain")
+				rv.w.Header().Set("Cache-Control", "max-age=2592000") // 30 days
+				rv.w.Write([]byte("User-agent: *\nDisallow: /"))
+				return
+			case "ping":
+				rv.w.Header().Set("Cache-Control", "max-age=0")
+				// Takes ~42 seconds if db is unresponsive, use it to check for it using client side js
+				// https://github.com/lib/pq/issues/620
+				// returns HTTP 500 if server can be instantly detected as being down
+				if err := rv.sv.db.ping(); err != nil {
+					log.Printf("db.Ping() returned %v\n", err)
+					rv.w.WriteHeader(http.StatusInternalServerError)
+				}
+				return
 			}
-			return
 		}
 	}
 
@@ -652,7 +639,7 @@ func loadConfig(configFileName string) (cfg passConfiguration, err error) {
 	}
 
 	if len(cfg.Secret) < 64 {
-		return cfg, fmt.Errorf("Site secret shorter than 64 characters, please make it at least 64 characters")
+		return cfg, fmt.Errorf("%s 'Secret' shorter than 64 characters, please make it at least 64 characters", configFileName)
 	}
 
 	return cfg, nil
@@ -783,6 +770,10 @@ func Main(pass *Pass) {
 	fmt.Printf("%s: Startup!\n", sv.cfg.Title)
 	fmt.Printf("Main program: %s\n", mainApp)
 	fmt.Printf("Wrapped by:   %s\n", wrapper)
+
+	if sv.cfg.ContentSecurityPolicyOverride != "" {
+		fmt.Printf("NOTE: Content-Security-Policy override applied for all requests: %s\n", sv.cfg.ContentSecurityPolicyOverride)
+	}
 
 	// goroutine that runs forever checking the state of the database connection
 	// This can not run in the normal process flow because of a bug in the pq

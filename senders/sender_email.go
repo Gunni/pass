@@ -11,8 +11,8 @@ import (
 	textTemplate "text/template"
 	"time"
 
-	"github.com/advania/pass"
-	"github.com/advania/pass/helpers"
+	"github.com/Gunni/pass"
+	"github.com/Gunni/pass/helpers"
 )
 
 // EmailConfig contains the config required for SendEmail
